@@ -136,9 +136,9 @@ $('holidayGenerate').onclick=()=>{
  const additions=template.filter(h=>h.enabled).map(h=>({h,date:holidayDate(Number(year),h.rule)})).filter(x=>!current.has(x.date));
  if(!additions.length){alert('No new holidays to add. Existing holidays were left unchanged.');return}
  const preview=additions.map(x=>x.date+' '+x.h.name).join('\n');
- if(!confirm('Add these '+additions.length+' recognized holidays for '+year+'?\n\n'+preview+'\n\nThey will NOT count as PTO or automatically mark you off work.'))return;
+ if(!confirm('Add these '+additions.length+' planned holidays for '+year+'?\n\n'+preview+'\n\nWeekday holidays record 8 PTO hours each; weekend dates record 0. Your employer-reported balance will NOT change.'))return;
  for(const {h,date} of additions)data.entries.push({id:id(),title:h.name,start:date,end:date,category:'Holiday',status:'planned',hours:8,company:'yes',exclude:[],notes:'Company holiday. Planned day off unless scheduled to work.'});
- if(save()){render();toast('Added '+additions.length+' recognized holidays')}
+ if(save()){render();toast('Added '+additions.length+' planned holidays')}
 };
 refreshHolidayUI();
 
