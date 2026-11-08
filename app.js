@@ -42,4 +42,65 @@ document.querySelectorAll('#entryForm input,#entryForm select').forEach(el=>el.a
 $('entries').onclick=event=>{const b=event.target.closest('[data-edit]');if(b)edit(b.dataset.edit)};
 $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.entries.filter(e=>e.id!==$('entryId').value);if(save()){hide('entryDialog');render();toast('Entry deleted')}}};
 $('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importFile').addEventListener('change',()=>{const f=$('importFile').files?.[0];$('importStatus').textContent=f?'Selected: '+f.name+' ('+Math.ceil(f.size/1024)+' KB)':'Choose a JSON backup file, then tap Restore selected backup.'});$('restoreSelected').onclick=()=>{const f=$('importFile').files?.[0];if(!f){alert('No file is selected. Choose a JSON backup file first.');return}importJSON(f)};
+
+const DRIVE_CLIENT_ID='694239144470-8rpg1ij8ribd8htd9p1parbu48fl9vme.apps.googleusercontent.com';
+const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+const DRIVE_NAME='pto-tracker-backup.json';
+let driveToken='',driveTokenClient=null;
+function driveStatus(message){$('driveStatus').textContent=message}
+function driveButtons(connected){$('driveUpload').disabled=!connected;$('driveDownload').disabled=!connected;$('driveDisconnect').disabled=!connected;$('driveConnect').textContent=connected?'Reconnect Google Drive':'Connect Google Drive'}
+function driveConnect(){
+  if(!window.google?.accounts?.oauth2){driveStatus('Google sign-in is not loaded. Check your connection and try again.');return}
+  if(!driveTokenClient)driveTokenClient=google.accounts.oauth2.initTokenClient({client_id:DRIVE_CLIENT_ID,scope:DRIVE_SCOPE,callback:response=>{
+    if(response.error||!response.access_token){driveStatus('Google authorization failed: '+(response.error||'No access token'));return}
+    driveToken=response.access_token;driveButtons(true);driveStatus('Connected for this session. Use Backup or Restore below.')
+  }});
+  driveTokenClient.requestAccessToken({prompt:driveToken?'':'consent'});
+}
+function driveDisconnect(){if(driveToken&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(driveToken,()=>{});driveToken='';driveButtons(false);driveStatus('Disconnected')}
+async function driveRequest(url,options={}){
+  if(!driveToken)throw Error('Connect Google Drive first');
+  const headers={Authorization:'Bearer '+driveToken,...options.headers};
+  const r=await fetch(url,{...options,headers});
+  if(!r.ok){let msg='HTTP '+r.status;try{const body=await r.json();msg=body.error?.message||msg}catch{}if(r.status===401){driveToken='';driveButtons(false)}throw Error(msg)}
+  return r;
+}
+async function driveFile(){
+  const url='https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,modifiedTime),nextPageToken&page_size=100&q='+encodeURIComponent("name = '"+DRIVE_NAME+"' and trashed = false");
+  const list=await (await driveRequest(url)).json();
+  return (list.files||[]).sort((a,b)=>b.modifiedTime.localeCompare(a.modifiedTime))[0]||null;
+}
+async function driveBackup(){
+  try{
+    driveStatus('Checking Google Drive backup…');
+    const existing=await driveFile();
+    if(existing&&!confirm('Replace the existing Google Drive backup (last updated '+new Date(existing.modifiedTime).toLocaleString()+') with the records on THIS device? If this device is out of date, cancel and restore from Drive first.')){driveStatus('Backup cancelled');return}
+    if(!existing&&!confirm('Create a private Google Drive backup of the PTO data on this device?')){driveStatus('Backup cancelled');return}
+    const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
+    const meta=existing?{name:DRIVE_NAME}:{name:DRIVE_NAME,parents:['appDataFolder']};
+    const boundary='pto_tracker_boundary_'+Date.now();
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+payload+'\r\n--'+boundary+'--';
+    const url=existing?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(existing.id)+'?uploadType=multipart':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+    await driveRequest(url,{method:existing?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+    driveStatus('Backup saved to Google Drive at '+new Date().toLocaleString());
+  }catch(e){driveStatus('Backup failed: '+e.message)}
+}
+async function driveRestore(){
+  try{
+    driveStatus('Looking for Google Drive backup…');
+    const f=await driveFile();if(!f){driveStatus('No PTO Tracker backup found in Google Drive');return}
+    const obj=await (await driveRequest('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(f.id)+'?alt=media')).json();
+    const v=obj.data||obj;
+    if(!valid(v)||v.entries.some(e=>!e.id||!e.title||!e.start||!e.end)||v.balances.some(b=>!b.date||!decimal(String(b.hours))))throw Error('Invalid backup format');
+    if(!confirm('Replace ALL PTO data on THIS device with Google Drive backup from '+new Date(f.modifiedTime).toLocaleString()+'? Drive contains '+v.entries.length+' entries and '+v.balances.length+' balances. Download a JSON backup first if you need to preserve local changes.')){driveStatus('Restore cancelled');return}
+    const old=data;data=v;
+    if(!save()){data=old;throw Error('Could not save restored data')}
+    render();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');toast('Google Drive backup restored');
+  }catch(e){driveStatus('Restore failed: '+e.message)}
+}
+$('driveConnect').onclick=driveConnect;
+$('driveUpload').onclick=driveBackup;
+$('driveDownload').onclick=driveRestore;
+$('driveDisconnect').onclick=driveDisconnect;
+
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.error);
