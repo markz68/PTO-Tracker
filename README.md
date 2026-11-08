@@ -1,10 +1,10 @@
 # PTO Tracker
 
-Version **1.0.3**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
+Version **1.1.0**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
 
 ## Privacy
 
-The **public GitHub repository contains application code only**, not personal PTO records. A new installation starts with no entries. Personal records remain in local browser storage on each device until manually exported or imported. **Google Drive synchronization is not implemented yet.** Export JSON backups regularly, particularly before clearing site data or switching devices.
+The **public GitHub repository contains application code only**, not personal PTO records. A new installation starts with no entries. Personal records remain in local browser storage on each device until manually exported or imported. **Google Drive manual backup and restore are available through OAuth; automatic sync is not implemented.** Export JSON backups regularly, particularly before clearing site data or switching devices.
 
 ## Deployment
 
@@ -19,10 +19,12 @@ GitHub → repository **Settings → Pages → Build and deployment → Deploy f
 - JSON export/import using a visible native file picker, and CSV export from top-right Settings.
 - Private 2026 starting data is supplied separately as a JSON backup, never committed to GitHub.
 
-## Changelog\n\n- v1.0.3: Keep restore button always clickable and read the native file input directly on tap, regardless of whether selection status updates.\n\n- v1.0.3: Add explicit Restore selected backup button, file selection confirmation, and disabled state until a file is chosen.\n\n- v1.0.3: Replace hidden programmatically triggered JSON restore picker with visible native file selection control for Android/Windows compatibility.\n\n## Known limitations and roadmap
+## Changelog
 
-- Device-to-device Google Drive sync requires separate OAuth integration and authorization.
-- Annual holiday PDF import is planned, not implemented.
+- v1.1.0: Add Google Drive OAuth sign-in and private manual backup/restore using the Drive appDataFolder scope. Keep manual JSON backups.\n\n- v1.1.0: Keep restore button always clickable and read the native file input directly on tap, regardless of whether selection status updates.\n\n- v1.1.0: Add explicit Restore selected backup button, file selection confirmation, and disabled state until a file is chosen.\n\n- v1.1.0: Replace hidden programmatically triggered JSON restore picker with visible native file selection control for Android/Windows compatibility.\n\n## Known limitations and roadmap
+
+- Google Drive uses private appDataFolder backups with explicit overwrite confirmations. Automatic merge/sync is not implemented; do not overwrite Drive with stale device data. Requires Google Drive API enabled in the Google Cloud project.
+- Annual holiday screenshot, pasted text and PDF import are planned, not implemented.
 - Per-date partial-hour overrides within multi-day ranges and configurable workweeks are planned.
 - Imported backup **replaces** local records after confirmation. No automatic conflict merge.
 - Past entries appear in History by date but retain their status; an unapproved request is not automatically considered taken.
