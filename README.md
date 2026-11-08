@@ -1,6 +1,6 @@
 # PTO Tracker
 
-Version **1.1.0**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
+Version **1.1.1**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
 
 ## Privacy
 
@@ -21,7 +21,9 @@ GitHub → repository **Settings → Pages → Build and deployment → Deploy f
 
 ## Changelog
 
-- v1.1.0: Add Google Drive OAuth sign-in and private manual backup/restore using the Drive appDataFolder scope. Keep manual JSON backups.\n\n- v1.1.0: Keep restore button always clickable and read the native file input directly on tap, regardless of whether selection status updates.\n\n- v1.1.0: Add explicit Restore selected backup button, file selection confirmation, and disabled state until a file is chosen.\n\n- v1.1.0: Replace hidden programmatically triggered JSON restore picker with visible native file selection control for Android/Windows compatibility.\n\n## Known limitations and roadmap
+- v1.1.1: Fix missing Google Drive controls in Settings that prevented app startup and hid local data. Existing localStorage data is unchanged.
+
+- v1.1.1: Add Google Drive OAuth sign-in and private manual backup/restore using the Drive appDataFolder scope. Keep manual JSON backups.\n\n- v1.1.1: Keep restore button always clickable and read the native file input directly on tap, regardless of whether selection status updates.\n\n- v1.1.1: Add explicit Restore selected backup button, file selection confirmation, and disabled state until a file is chosen.\n\n- v1.1.1: Replace hidden programmatically triggered JSON restore picker with visible native file selection control for Android/Windows compatibility.\n\n## Known limitations and roadmap
 
 - Google Drive uses private appDataFolder backups with explicit overwrite confirmations. Automatic merge/sync is not implemented; do not overwrite Drive with stale device data. Requires Google Drive API enabled in the Google Cloud project.
 - Annual holiday screenshot, pasted text and PDF import are planned, not implemented.
