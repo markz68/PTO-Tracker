@@ -41,5 +41,5 @@ $('balanceForm').addEventListener('submit',saveBalance);
 document.querySelectorAll('#entryForm input,#entryForm select').forEach(el=>el.addEventListener('input',estimate));
 $('entries').onclick=event=>{const b=event.target.closest('[data-edit]');if(b)edit(b.dataset.edit)};
 $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.entries.filter(e=>e.id!==$('entryId').value);if(save()){hide('entryDialog');render();toast('Entry deleted')}}};
-$('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importJSON').onclick=()=>$('importFile').click();$('importFile').onchange=e=>importJSON(e.target.files?.[0]);
+$('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importFile').onchange=e=>importJSON(e.target.files?.[0]);
 render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.error);
