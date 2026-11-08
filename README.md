@@ -1,6 +1,6 @@
 # PTO Tracker
 
-Version **1.0.0**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
+Version **1.0.1**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
 
 ## Privacy
 
@@ -16,10 +16,10 @@ GitHub → repository **Settings → Pages → Build and deployment → Deploy f
 - Upcoming and past entries with category, approval/taken/worked statuses, notes, and company-holiday indicator.
 - Monday to Friday, 8-hour default schedule; 1–8 whole hours per workday; weekends excluded and specific weekdays may be excluded.
 - No automatic holiday weekday observance; employer-recognized holidays and requested PTO are distinct.
-- JSON export/import and CSV export from top-right Settings.
+- JSON export/import using a visible native file picker, and CSV export from top-right Settings.
 - Private 2026 starting data is supplied separately as a JSON backup, never committed to GitHub.
 
-## Known limitations and roadmap
+## Changelog\n\n- v1.0.1: Replace hidden programmatically triggered JSON restore picker with visible native file selection control for Android/Windows compatibility.\n\n## Known limitations and roadmap
 
 - Device-to-device Google Drive sync requires separate OAuth integration and authorization.
 - Annual holiday PDF import is planned, not implemented.
