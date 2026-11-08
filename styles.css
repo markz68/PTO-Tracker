@@ -7,3 +7,5 @@
 .holidayLine{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e4ebf0}.holidayLine label{flex:1;display:flex;align-items:center;gap:6px;margin:0;font-weight:500}.holidayLine input{width:auto;margin:0}.holidayLine span{font-size:12px;white-space:nowrap}.holidayLine button{padding:5px 7px;font-size:11px}
 
 .holidayDay{font-weight:600}.holidayDay.weekend{color:#a55c16;background:#fff1db;border-radius:5px;padding:4px 6px}@media(max-width:450px){.holidayLine{flex-wrap:wrap}.holidayLine label{flex-basis:100%}.holidayLine span{flex:1}}
+
+.holidaySaveStatus{font-size:13px;font-weight:600;color:#845d12;padding:9px 11px;border-radius:8px;background:#fff3dc;margin:2px 0}.holidaySaveStatus.saved{color:#126044;background:#def5e8}
