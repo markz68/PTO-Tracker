@@ -31,7 +31,7 @@ GitHub → repository **Settings → Pages → Build and deployment → Deploy f
 
 1. Enable Pages and open the published URL on Windows and Android.
 2. Import the private 2026 backup via Settings → Restore JSON backup.
-3. Confirm 300.476406 hours as of November 6, 2026 and 13 entries.
+3. Confirm the imported balance, as-of date, and entry count match the private backup.
 4. Check Ireland June 10–19, 2026: eight weekdays, 64 hours.
 5. Verify Saturday holiday alone counts zero hours and July 3, 2026 counts eight.
 6. Edit/add/approve PTO, including a 1-hour day; ensure employer balance does not change.
