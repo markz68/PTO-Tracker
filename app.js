@@ -80,6 +80,7 @@ function refreshHolidayUI(){
  renderHolidayUI();
 }
 function renderHolidayUI(){
+ if($('holidaySaveStatus')){$('holidaySaveStatus').textContent='Unsaved changes. Click Save year\'s template before generating.';$('holidaySaveStatus').classList.remove('saved');$('holidayGenerate').disabled=true;}
  const year=Number($('holidayYear').value);
  $('holidayList').innerHTML=holidayDraft.map((h,i)=>'<div class="holidayLine"><label><input type="checkbox" data-holiday-index="'+i+'" '+(h.enabled?'checked':'')+'> '+esc(h.name)+'</label><span class="holidayDay '+([0,6].includes(dateObj(holidayDate(year,h.rule)).getUTCDay())?'weekend':'')+'">'+esc(holidayDate(year,h.rule))+' · '+esc(new Intl.DateTimeFormat('en-US',{weekday:'long',timeZone:'UTC'}).format(dateObj(holidayDate(year,h.rule))))+'</span><button type="button" class="secondary" data-holiday-delete="'+i+'">Remove</button></div>').join('');
  $('holidayInfo').textContent=holidayDraft.filter(h=>h.enabled).length+' holidays selected. Save this template before generating.';
@@ -111,7 +112,7 @@ $('holidaySave').onclick=()=>{
  const year=$('holidayYear').value;
  if(!/^20\d\d$/.test(year)){alert('Choose a year from 2000 through 2099');return}
  holidayTemplates()[year]=JSON.parse(JSON.stringify(holidayDraft));
- if(save())toast('Holiday template saved for '+year);
+ if(save()){const count=holidayDraft.filter(h=>h.enabled).length;$('holidaySaveStatus').textContent='✓ Saved '+year+' template with '+count+' selected holiday'+(count===1?'':'s')+'.';$('holidaySaveStatus').classList.add('saved');$('holidayGenerate').disabled=false;}else{$('holidaySaveStatus').textContent='Save failed. Please export a backup and check storage.';}
 };
 $('holidayGenerate').onclick=()=>{
  const year=$('holidayYear').value,template=holidayTemplates()[year];
