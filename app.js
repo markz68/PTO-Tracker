@@ -108,7 +108,7 @@ async function uploadSync(existing){
   const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
   const meta=existing?{name:DRIVE_NAME}:{name:DRIVE_NAME,parents:['appDataFolder']};
   const boundary='pto_sync_'+Date.now();
-  const body='--'+boundary+'\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'+JSON.stringify(meta)+'\\r\\n--'+boundary+'\\r\\nContent-Type: application/json\\r\\n\\r\\n'+payload+'\\r\\n--'+boundary+'--';
+  const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+payload+'\r\n--'+boundary+'--';
   await driveRequest(existing?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(existing.id)+'?uploadType=multipart':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:existing?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
 }
 async function syncNow(){
