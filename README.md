@@ -1,6 +1,6 @@
 # PTO Tracker
 
-Version **1.3.2**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
+Version **1.3.3**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
 
 ## Privacy
 
@@ -61,3 +61,7 @@ For updates, bump the displayed version and service-worker CACHE together. Keep 
 ## v1.3.2
 
 Holiday template saving now displays persistent inline success confirmation with year and selected holiday count. Editing the template marks it unsaved and disables generation until saved again.
+
+## v1.3.3
+
+Moved Google Drive sync status from the employer-reported balance card to the application header under the version number. The existing sync status element ID and behavior are unchanged. No changes to PTO records, balance calculations, or Drive sync logic.
