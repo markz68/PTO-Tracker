@@ -9,3 +9,5 @@
 .holidayDay{font-weight:600}.holidayDay.weekend{color:#a55c16;background:#fff1db;border-radius:5px;padding:4px 6px}@media(max-width:450px){.holidayLine{flex-wrap:wrap}.holidayLine label{flex-basis:100%}.holidayLine span{flex:1}}
 
 .holidaySaveStatus{font-size:13px;font-weight:600;color:#845d12;padding:9px 11px;border-radius:8px;background:#fff3dc;margin:2px 0}.holidaySaveStatus.saved{color:#126044;background:#def5e8}
+
+.brand .headerSync{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:1.5;color:#b9e7e1;opacity:1;font-weight:500}.brand>span:last-child{min-width:0}@media(max-width:420px){.brand .headerSync{max-width:185px}}
