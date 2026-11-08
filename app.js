@@ -7,7 +7,7 @@ const fresh=()=>({version:1,entries:[],balances:[]});
 const valid=o=>o&&o.version===1&&Array.isArray(o.entries)&&Array.isArray(o.balances)&&o.entries.length<10000&&o.balances.length<10000;
 let data=fresh();try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(valid(o))data=o}}catch(e){console.error('Storage read error',e)}
 let tab='upcoming';
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){alert('Could not save. Export a backup and check browser storage.');return false}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));if(typeof scheduleSync==='function')scheduleSync();return true}catch(e){alert('Could not save. Export a backup and check browser storage.');return false}};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateObj=s=>new Date(s+'T12:00:00Z');
 const short=s=>new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).format(dateObj(s));
@@ -53,16 +53,16 @@ function driveConnect(){
   if(!window.google?.accounts?.oauth2){driveStatus('Google sign-in is not loaded. Check your connection and try again.');return}
   if(!driveTokenClient)driveTokenClient=google.accounts.oauth2.initTokenClient({client_id:DRIVE_CLIENT_ID,scope:DRIVE_SCOPE,callback:response=>{
     if(response.error||!response.access_token){driveStatus('Google authorization failed: '+(response.error||'No access token'));return}
-    driveToken=response.access_token;driveButtons(true);driveStatus('Connected for this session. Use Backup or Restore below.')
+    driveToken=response.access_token;driveButtons(true);driveStatus('Connected. Checking for changes…');syncNow()
   }});
   driveTokenClient.requestAccessToken({prompt:driveToken?'':'consent'});
 }
-function driveDisconnect(){if(driveToken&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(driveToken,()=>{});driveToken='';driveButtons(false);driveStatus('Disconnected')}
+function driveDisconnect(){if(driveToken&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(driveToken,()=>{});driveToken='';driveButtons(false);driveStatus('Disconnected');syncIndicator('Not connected')}
 async function driveRequest(url,options={}){
   if(!driveToken)throw Error('Connect Google Drive first');
   const headers={Authorization:'Bearer '+driveToken,...options.headers};
   const r=await fetch(url,{...options,headers});
-  if(!r.ok){let msg='HTTP '+r.status;try{const body=await r.json();msg=body.error?.message||msg}catch{}if(r.status===401){driveToken='';driveButtons(false)}throw Error(msg)}
+  if(!r.ok){let msg='HTTP '+r.status;try{const body=await r.json();msg=body.error?.message||msg}catch{}if(r.status===401){driveToken='';driveButtons(false);syncIndicator('Reconnect required')}throw Error(msg)}
   return r;
 }
 async function driveFile(){
@@ -82,7 +82,7 @@ async function driveBackup(){
     const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+payload+'\r\n--'+boundary+'--';
     const url=existing?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(existing.id)+'?uploadType=multipart':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
     await driveRequest(url,{method:existing?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
-    driveStatus('Backup saved to Google Drive at '+new Date().toLocaleString());
+    localStorage.setItem(SYNC_BASE,JSON.stringify(data));driveStatus('Backup saved to Google Drive at '+new Date().toLocaleString());syncIndicator('Backed up');
   }catch(e){driveStatus('Backup failed: '+e.message)}
 }
 async function driveRestore(){
@@ -95,9 +95,65 @@ async function driveRestore(){
     if(!confirm('Replace ALL PTO data on THIS device with Google Drive backup from '+new Date(f.modifiedTime).toLocaleString()+'? Drive contains '+v.entries.length+' entries and '+v.balances.length+' balances. Download a JSON backup first if you need to preserve local changes.')){driveStatus('Restore cancelled');return}
     const old=data;data=v;
     if(!save()){data=old;throw Error('Could not save restored data')}
-    render();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');toast('Google Drive backup restored');
+    localStorage.setItem(SYNC_BASE,JSON.stringify(v));render();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');syncIndicator('Synced');toast('Google Drive backup restored');
   }catch(e){driveStatus('Restore failed: '+e.message)}
 }
+
+const SYNC_BASE='pto-tracker-sync-base-v1';
+let syncBusy=false,syncQueued=false,syncTimer=null;
+const snapshot=x=>JSON.stringify({version:1,entries:x.entries,balances:x.balances});
+function syncIndicator(s){$('syncIndicator').textContent=s}
+function scheduleSync(){if(!driveToken)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(),1200)}
+async function uploadSync(existing){
+  const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
+  const meta=existing?{name:DRIVE_NAME}:{name:DRIVE_NAME,parents:['appDataFolder']};
+  const boundary='pto_sync_'+Date.now();
+  const body='--'+boundary+'\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'+JSON.stringify(meta)+'\\r\\n--'+boundary+'\\r\\nContent-Type: application/json\\r\\n\\r\\n'+payload+'\\r\\n--'+boundary+'--';
+  await driveRequest(existing?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(existing.id)+'?uploadType=multipart':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:existing?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+}
+async function syncNow(){
+  if(!driveToken||!navigator.onLine){syncIndicator(navigator.onLine?'Not connected':'Offline, changes kept locally');return}
+  if(syncBusy){syncQueued=true;return}
+  syncBusy=true;syncIndicator('Syncing…');
+  try{
+    const file=await driveFile();
+    let remote=null;
+    if(file){
+      const obj=await (await driveRequest('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media')).json();
+      remote=obj.data||obj;
+      if(!valid(remote))throw Error('Drive backup format is invalid');
+    }
+    const raw=localStorage.getItem(SYNC_BASE),base=raw?JSON.parse(raw):null;
+    const localSnap=snapshot(data),remoteSnap=remote?snapshot(remote):null,baseSnap=base?snapshot(base):null;
+    if(localSnap===remoteSnap){
+      localStorage.setItem(SYNC_BASE,JSON.stringify(data));
+      syncIndicator('Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+    }else if(baseSnap!==null&&localSnap===baseSnap&&remote){
+      data=remote;if(!save())throw Error('Local storage failed');
+      localStorage.setItem(SYNC_BASE,JSON.stringify(data));render();
+      syncIndicator('Synced from Drive '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+    }else if((baseSnap!==null&&remoteSnap===baseSnap)||(!remote&&!base)){
+      // Re-read before writing; refuse a changed remote snapshot.
+      const latestFile=await driveFile();
+      if((latestFile?.modifiedTime||null)!==(file?.modifiedTime||null))throw Error('Drive changed during sync. Try Sync Now.');
+      await uploadSync(file);
+      localStorage.setItem(SYNC_BASE,JSON.stringify(data));
+      syncIndicator('Synced to Drive '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+    }else if(!base&&remote){
+      syncIndicator('Needs review: device and Drive differ');
+      driveStatus('Device and Drive contain different data. Automatic sync paused to protect your records. Export JSON backups before choosing which copy to restore.');
+    }else{
+      syncIndicator('Sync conflict: review needed');
+      driveStatus('Both this device and Google Drive changed. Automatic sync paused. Export JSON backups and reconcile before restoring or backing up.');
+    }
+  }catch(e){syncIndicator('Sync pending');driveStatus('Sync could not finish: '+e.message)}
+  finally{syncBusy=false;if(syncQueued){syncQueued=false;scheduleSync()}}
+}
+$('syncNow').onclick=syncNow;
+window.addEventListener('online',()=>scheduleSync());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&driveToken)syncNow()});
+setInterval(()=>{if(driveToken&&!document.hidden)syncNow()},60000);
+
 $('driveConnect').onclick=driveConnect;
 $('driveUpload').onclick=driveBackup;
 $('driveDownload').onclick=driveRestore;
