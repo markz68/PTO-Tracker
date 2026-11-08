@@ -3,7 +3,7 @@ const KEY='pto-tracker-v1';
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const id=()=>crypto.randomUUID?.()||String(Date.now())+Math.random().toString(36).slice(2);
-const fresh=()=>({version:1,entries:[],balances:[]});
+const fresh=()=>({version:1,entries:[],balances:[],holidayTemplates:{}});
 const valid=o=>o&&o.version===1&&Array.isArray(o.entries)&&Array.isArray(o.balances)&&o.entries.length<10000&&o.balances.length<10000;
 let data=fresh();try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(valid(o))data=o}}catch(e){console.error('Storage read error',e)}
 let tab='upcoming';
@@ -13,14 +13,14 @@ const dateObj=s=>new Date(s+'T12:00:00Z');
 const short=s=>new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).format(dateObj(s));
 const long=s=>new Intl.DateTimeFormat('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'UTC'}).format(dateObj(s));
 function weekdays(start,end,excluded=[]){if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end)||end<start)return 0;const skips=new Set(excluded);let n=0,d=dateObj(start),last=dateObj(end);for(let i=0;d<=last&&i<4000;i++,d.setUTCDate(d.getUTCDate()+1)){const s=d.toISOString().slice(0,10);if(d.getUTCDay()>0&&d.getUTCDay()<6&&!skips.has(s))n++}return n}
-const used=e=>['worked','cancelled','denied'].includes(e.status)?0:weekdays(e.start,e.end,e.exclude||[])*Number(e.hours||8);
+const used=e=>['recognized','worked','cancelled','denied'].includes(e.status)?0:weekdays(e.start,e.end,e.exclude||[])*Number(e.hours||8);
 function exactDays(hours){const parts=String(hours).split('.');const digits=parts[1]?.length||0;const value=BigInt(parts.join(''));const denominator=10n**BigInt(digits)*8n;const scaled=value*10000n/denominator;return (Number(scaled)/10000).toFixed(2)}
 const latest=()=>[...data.balances].sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)))[0];
 function renderBalance(){const b=latest();$('balance').innerHTML=b?Number(b.hours).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' <small>hours</small>':'No balance yet';$('days').textContent=b?exactDays(b.hours)+' eight-hour days':'';$('balanceMeta').textContent=b?'Exact: '+b.hours+' hours · As of '+long(b.date):'Use Update to enter your employer-reported balance'}
-function render(){renderBalance();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x.dataset.tab===tab));$('heading').textContent=tab==='upcoming'?'Upcoming time off':tab==='history'?'Time off history':'Balance history';$('add').hidden=tab==='balances';let html='';if(tab==='balances'){const arr=[...data.balances].sort((a,b)=>b.date.localeCompare(a.date));$('summary').textContent=arr.length+' balance updates';html=arr.map(b=>'<div class="balanceItem"><div><strong>'+esc(b.hours)+' hours</strong><div class="muted">'+esc(long(b.date))+'</div></div><span class="muted">'+esc(exactDays(b.hours))+' days</span></div>').join('')}else{const past=tab==='history',arr=data.entries.filter(e=>past?e.end<today():e.end>=today()).sort((a,b)=>past?b.start.localeCompare(a.start):a.start.localeCompare(b.start));$('summary').textContent=arr.length+' entries · '+arr.reduce((n,e)=>n+used(e),0)+' recorded PTO hours';html=arr.map(e=>'<div class="item"><button type="button" class="itemEdit" data-edit="'+esc(e.id)+'" aria-label="Edit '+esc(e.title)+'"><span class="date">'+esc(short(e.start))+(e.end!==e.start?'<span class="dateTo">to</span>'+esc(short(e.end)):'')+'</span><span class="detail"><strong>'+esc(e.title)+'</strong><small>'+esc(e.category)+' · '+used(e)+' PTO hours</small></span></button><label class="quickStatusLabel">Status<select class="quickStatus '+esc(e.status)+'" data-status-id="'+esc(e.id)+'" aria-label="Status for '+esc(e.title)+'">'+[['planned','Planned'],['requested','Requested'],['approved','Approved'],['taken','Taken'],['denied','Denied'],['cancelled','Cancelled'],['worked','Worked / Not off']].map(([v,label])=>'<option value="'+v+'"'+(e.status===v?' selected':'')+'>'+label+'</option>').join('')+'</select></label></div>').join('')} $('entries').innerHTML=html||'<div class="empty">No records yet.</div>'}
+function render(){renderBalance();document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x.dataset.tab===tab));$('heading').textContent=tab==='upcoming'?'Upcoming time off':tab==='history'?'Time off history':'Balance history';$('add').hidden=tab==='balances';let html='';if(tab==='balances'){const arr=[...data.balances].sort((a,b)=>b.date.localeCompare(a.date));$('summary').textContent=arr.length+' balance updates';html=arr.map(b=>'<div class="balanceItem"><div><strong>'+esc(b.hours)+' hours</strong><div class="muted">'+esc(long(b.date))+'</div></div><span class="muted">'+esc(exactDays(b.hours))+' days</span></div>').join('')}else{const past=tab==='history',arr=data.entries.filter(e=>past?e.end<today():e.end>=today()).sort((a,b)=>past?b.start.localeCompare(a.start):a.start.localeCompare(b.start));$('summary').textContent=arr.length+' entries · '+arr.reduce((n,e)=>n+used(e),0)+' recorded PTO hours';html=arr.map(e=>'<div class="item"><button type="button" class="itemEdit" data-edit="'+esc(e.id)+'" aria-label="Edit '+esc(e.title)+'"><span class="date">'+esc(short(e.start))+(e.end!==e.start?'<span class="dateTo">to</span>'+esc(short(e.end)):'')+'</span><span class="detail"><strong>'+esc(e.title)+'</strong><small>'+esc(e.category)+' · '+used(e)+' PTO hours</small></span></button><label class="quickStatusLabel">Status<select class="quickStatus '+esc(e.status)+'" data-status-id="'+esc(e.id)+'" aria-label="Status for '+esc(e.title)+'">'+[['recognized','Recognized holiday'],['planned','Planned'],['requested','Requested'],['approved','Approved'],['taken','Taken'],['denied','Denied'],['cancelled','Cancelled'],['worked','Worked / Not off']].map(([v,label])=>'<option value="'+v+'"'+(e.status===v?' selected':'')+'>'+label+'</option>').join('')+'</select></label></div>').join('')} $('entries').innerHTML=html||'<div class="empty">No records yet.</div>'}
 function show(name){$(name).showModal()}function hide(name){$(name).close()}
 function exclusions(){return $('exclude').value.split(',').map(x=>x.trim()).filter(Boolean)}
-function estimate(){const start=$('start').value,end=$('end').value;const n=weekdays(start,end,exclusions());const h=['worked','denied','cancelled'].includes($('status').value)?0:n*Number($('hours').value);$('estimate').textContent=start&&end&&end<start?'End date must be on or after start date':n+' weekdays · '+h+' PTO hours'}
+function estimate(){const start=$('start').value,end=$('end').value;const n=weekdays(start,end,exclusions());const h=['recognized','worked','denied','cancelled'].includes($('status').value)?0:n*Number($('hours').value);$('estimate').textContent=start&&end&&end<start?'End date must be on or after start date':n+' weekdays · '+h+' PTO hours'}
 function edit(entryId){const e=data.entries.find(x=>x.id===entryId);$('formTitle').textContent=e?'Edit PTO':'Add PTO';$('entryId').value=e?.id||'';$('title').value=e?.title||'';$('start').value=e?.start||today();$('end').value=e?.end||today();$('category').value=e?.category||'Vacation';$('status').value=e?.status||'planned';$('hours').value=String(e?.hours||8);$('company').value=e?.company||'';$('exclude').value=(e?.exclude||[]).join(', ');$('notes').value=e?.notes||'';$('remove').hidden=!e;estimate();show('entryDialog')}
 function saveEntry(event){event.preventDefault();const start=$('start').value,end=$('end').value,hours=Number($('hours').value),exclude=exclusions();if(end<start){alert('End date must be on or after start date');return}if(!Number.isInteger(hours)||hours<1||hours>8){alert('Hours must be 1 through 8');return}if(exclude.some(s=>!/^\d{4}-\d{2}-\d{2}$/.test(s)||s<start||s>end||!Number.isFinite(dateObj(s).getTime()))){alert('Excluded dates must be valid dates within the range');return}const entryId=$('entryId').value;const e={id:entryId||id(),title:$('title').value.trim(),start,end,category:$('category').value,status:$('status').value,hours,company:$('company').value,exclude:[...new Set(exclude)],notes:$('notes').value.trim()};if(!e.title)return;if(entryId)data.entries=data.entries.map(v=>v.id===entryId?e:v);else data.entries.push(e);if(save()){hide('entryDialog');render();toast('PTO saved')}}
 const decimal=s=>/^\d+(\.\d+)?$/.test(s)&&s.length<100;
@@ -41,9 +41,90 @@ $('balanceForm').addEventListener('submit',saveBalance);
 document.querySelectorAll('#entryForm input,#entryForm select').forEach(el=>el.addEventListener('input',estimate));
 $('start').addEventListener('change',()=>{if(!$('entryId').value){$('end').value=$('start').value;estimate()}});
 $('entries').onclick=event=>{const b=event.target.closest('[data-edit]');if(b)edit(b.dataset.edit)};
-$('entries').addEventListener('change',event=>{const select=event.target.closest('[data-status-id]');if(!select)return;const entry=data.entries.find(e=>e.id===select.dataset.statusId);if(!entry)return;const previous=entry.status,next=select.value;if(previous===next)return;if(!['planned','requested','approved','taken','denied','cancelled','worked'].includes(next)){select.value=previous;return}entry.status=next;if(save()){render();toast('Status updated to '+select.selectedOptions[0].textContent)}else{entry.status=previous;select.value=previous}});
+$('entries').addEventListener('change',event=>{const select=event.target.closest('[data-status-id]');if(!select)return;const entry=data.entries.find(e=>e.id===select.dataset.statusId);if(!entry)return;const previous=entry.status,next=select.value;if(previous===next)return;if(!['recognized','planned','requested','approved','taken','denied','cancelled','worked'].includes(next)){select.value=previous;return}entry.status=next;if(save()){render();toast('Status updated to '+select.selectedOptions[0].textContent)}else{entry.status=previous;select.value=previous}});
 $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.entries.filter(e=>e.id!==$('entryId').value);if(save()){hide('entryDialog');render();toast('Entry deleted')}}};
 $('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importFile').addEventListener('change',()=>{const f=$('importFile').files?.[0];$('importStatus').textContent=f?'Selected: '+f.name+' ('+Math.ceil(f.size/1024)+' KB)':'Choose a JSON backup file, then tap Restore selected backup.'});$('restoreSelected').onclick=()=>{const f=$('importFile').files?.[0];if(!f){alert('No file is selected. Choose a JSON backup file first.');return}importJSON(f)};
+
+
+const HOLIDAYS=[
+ {key:'newyear',name:"New Year's Day",rule:'fixed:01-01'},
+ {key:'easter',name:'Easter',rule:'easter'},
+ {key:'memorial',name:'Memorial Day',rule:'nth:05:1:-1'},
+ {key:'independence',name:'Independence Day',rule:'fixed:07-04'},
+ {key:'labor',name:'Labor Day',rule:'nth:09:1:1'},
+ {key:'thanksgiving',name:'Thanksgiving',rule:'nth:11:4:4'},
+ {key:'christmaseve',name:'Christmas Eve',rule:'fixed:12-24'},
+ {key:'christmas',name:'Christmas Day',rule:'fixed:12-25'},
+ {key:'mlk',name:'Martin Luther King Jr. Day',rule:'nth:01:1:3'}
+];
+function holidayDate(y,rule){
+ if(rule==='easter'){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k+7)%7,m=Math.floor((a+11*h+22*l)/451),v=h+l-7*m+114;
+  return y+'-'+String(Math.floor(v/31)).padStart(2,'0')+'-'+String(v%31+1).padStart(2,'0');
+ }
+ if(rule.startsWith('fixed:'))return y+'-'+rule.slice(6);
+ const [,month,weekday,nth]=rule.split(':').map(Number);
+ const last=new Date(Date.UTC(y,month,0)).getUTCDate();
+ const firstDay=new Date(Date.UTC(y,month-1,1)).getUTCDay();
+ const lastDay=new Date(Date.UTC(y,month-1,last)).getUTCDay();
+ const day=nth===-1?last-(lastDay-weekday+7)%7:1+(weekday-firstDay+7)%7+7*(nth-1);
+ return y+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+const holidayTemplates=()=>data.holidayTemplates||(data.holidayTemplates={});
+const holidayDefault=()=>HOLIDAYS.filter(h=>h.key!=='mlk').map(h=>({...h,enabled:true}));
+let holidayDraft=[];
+function refreshHolidayUI(){
+ const year=$('holidayYear').value;
+ const stored=holidayTemplates()[year];
+ holidayDraft=JSON.parse(JSON.stringify(stored||holidayDefault()));
+ renderHolidayUI();
+}
+function renderHolidayUI(){
+ const year=Number($('holidayYear').value);
+ $('holidayList').innerHTML=holidayDraft.map((h,i)=>'<div class="holidayLine"><label><input type="checkbox" data-holiday-index="'+i+'" '+(h.enabled?'checked':'')+'> '+esc(h.name)+'</label><span>'+esc(holidayDate(year,h.rule))+'</span><button type="button" class="secondary" data-holiday-delete="'+i+'">Remove</button></div>').join('');
+ $('holidayInfo').textContent=holidayDraft.filter(h=>h.enabled).length+' holidays selected. Save this template before generating.';
+}
+$('holidayYear').value=String(new Date().getFullYear()+1);
+$('holidayYear').addEventListener('change',refreshHolidayUI);
+$('holidayList').addEventListener('change',e=>{
+ const i=e.target.dataset.holidayIndex;
+ if(i!==undefined){holidayDraft[Number(i)].enabled=e.target.checked;renderHolidayUI()}
+});
+$('holidayList').addEventListener('click',e=>{
+ const b=e.target.closest('[data-holiday-delete]');
+ if(b){holidayDraft.splice(Number(b.dataset.holidayDelete),1);renderHolidayUI()}
+});
+$('holidayAdd').onclick=()=>{
+ const key=$('holidayCatalog').value,found=HOLIDAYS.find(h=>h.key===key);
+ if(!found)return;
+ if(holidayDraft.some(h=>h.key===key)){toast('Already in template');return}
+ holidayDraft.push({...found,enabled:true});renderHolidayUI();
+};
+$('holidayAddCustom').onclick=()=>{
+ const name=$('holidayCustomName').value.trim(),md=$('holidayCustomDate').value.trim();
+ const validMD=/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(md)&&new Date('2028-'+md+'T12:00:00Z').toISOString().slice(5,10)===md;
+ if(!name||!validMD){alert('Enter a holiday name and valid MM-DD date');return}
+ holidayDraft.push({key:id(),name,rule:'fixed:'+md,enabled:true});
+ $('holidayCustomName').value='';$('holidayCustomDate').value='';renderHolidayUI();
+};
+$('holidaySave').onclick=()=>{
+ const year=$('holidayYear').value;
+ if(!/^20\d\d$/.test(year)){alert('Choose a year from 2000 through 2099');return}
+ holidayTemplates()[year]=JSON.parse(JSON.stringify(holidayDraft));
+ if(save())toast('Holiday template saved for '+year);
+};
+$('holidayGenerate').onclick=()=>{
+ const year=$('holidayYear').value,template=holidayTemplates()[year];
+ if(!template){alert('Save the holiday template first');return}
+ const current=new Set(data.entries.filter(e=>e.category==='Holiday').map(e=>e.start+'|'+e.title.toLowerCase()));
+ const additions=template.filter(h=>h.enabled).map(h=>({h,date:holidayDate(Number(year),h.rule)})).filter(x=>!current.has(x.date+'|'+x.h.name.toLowerCase()));
+ if(!additions.length){alert('No new holidays to add. Existing holidays were left unchanged.');return}
+ const preview=additions.map(x=>x.date+' '+x.h.name).join('\n');
+ if(!confirm('Add these '+additions.length+' recognized holidays for '+year+'?\n\n'+preview+'\n\nThey will NOT count as PTO or automatically mark you off work.'))return;
+ for(const {h,date} of additions)data.entries.push({id:id(),title:h.name,start:date,end:date,category:'Holiday',status:'recognized',hours:8,company:'yes',exclude:[],notes:'Holiday differential eligibility only. Work/off schedule unconfirmed.'});
+ if(save()){render();toast('Added '+additions.length+' recognized holidays')}
+};
+refreshHolidayUI();
 
 const DRIVE_CLIENT_ID='694239144470-8rpg1ij8ribd8htd9p1parbu48fl9vme.apps.googleusercontent.com';
 const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
@@ -97,13 +178,13 @@ async function driveRestore(){
     if(!confirm('Replace ALL PTO data on THIS device with Google Drive backup from '+new Date(f.modifiedTime).toLocaleString()+'? Drive contains '+v.entries.length+' entries and '+v.balances.length+' balances. Download a JSON backup first if you need to preserve local changes.')){driveStatus('Restore cancelled');return}
     const old=data;data=v;
     if(!save()){data=old;throw Error('Could not save restored data')}
-    localStorage.setItem(SYNC_BASE,JSON.stringify(v));render();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');syncIndicator('Synced');toast('Google Drive backup restored');
+    localStorage.setItem(SYNC_BASE,JSON.stringify(v));render();if(typeof refreshHolidayUI==='function')refreshHolidayUI();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');syncIndicator('Synced');toast('Google Drive backup restored');
   }catch(e){driveStatus('Restore failed: '+e.message)}
 }
 
 const SYNC_BASE='pto-tracker-sync-base-v1';
 let syncBusy=false,syncQueued=false,syncTimer=null;
-const snapshot=x=>JSON.stringify({version:1,entries:x.entries,balances:x.balances});
+const snapshot=x=>JSON.stringify({version:1,entries:x.entries,balances:x.balances,holidayTemplates:x.holidayTemplates||{}});
 function syncIndicator(s){$('syncIndicator').textContent=s;if(driveToken&&$('driveStatus'))$('driveStatus').textContent=s}
 function scheduleSync(){if(!driveToken)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(),1200)}
 async function uploadSync(existing){
@@ -132,7 +213,7 @@ async function syncNow(){
       syncIndicator('Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
     }else if(baseSnap!==null&&localSnap===baseSnap&&remote){
       data=remote;if(!save())throw Error('Local storage failed');
-      localStorage.setItem(SYNC_BASE,JSON.stringify(data));render();
+      localStorage.setItem(SYNC_BASE,JSON.stringify(data));render();if(typeof refreshHolidayUI==='function')refreshHolidayUI();
       syncIndicator('Synced from Drive '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
     }else if((baseSnap!==null&&remoteSnap===baseSnap)||(!remote&&!base)){
       // Re-read before writing; refuse a changed remote snapshot.
