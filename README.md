@@ -1,6 +1,6 @@
 # PTO Tracker
 
-Version **1.3.1**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
+Version **1.3.2**. A mobile-first, installable, offline-capable PWA for tracking time off and manually reported employer PTO balances.
 
 ## Privacy
 
@@ -57,3 +57,7 @@ GitHub → repository **Settings → Pages → Build and deployment → Deploy f
 8. Install the PWA and verify offline launch.
 
 For updates, bump the displayed version and service-worker CACHE together. Keep all backup/restore functions under Settings.
+
+## v1.3.2
+
+Holiday template saving now displays persistent inline success confirmation with year and selected holiday count. Editing the template marks it unsaved and disables generation until saved again.
