@@ -102,7 +102,7 @@ async function driveRestore(){
 const SYNC_BASE='pto-tracker-sync-base-v1';
 let syncBusy=false,syncQueued=false,syncTimer=null;
 const snapshot=x=>JSON.stringify({version:1,entries:x.entries,balances:x.balances});
-function syncIndicator(s){$('syncIndicator').textContent=s}
+function syncIndicator(s){$('syncIndicator').textContent=s;if(driveToken&&$('driveStatus'))$('driveStatus').textContent=s}
 function scheduleSync(){if(!driveToken)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(),1200)}
 async function uploadSync(existing){
   const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
