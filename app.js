@@ -39,6 +39,7 @@ $('add').onclick=()=>edit(null);
 $('entryForm').addEventListener('submit',saveEntry);
 $('balanceForm').addEventListener('submit',saveBalance);
 document.querySelectorAll('#entryForm input,#entryForm select').forEach(el=>el.addEventListener('input',estimate));
+$('start').addEventListener('change',()=>{if(!$('entryId').value){$('end').value=$('start').value;estimate()}});
 $('entries').onclick=event=>{const b=event.target.closest('[data-edit]');if(b)edit(b.dataset.edit)};
 $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.entries.filter(e=>e.id!==$('entryId').value);if(save()){hide('entryDialog');render();toast('Entry deleted')}}};
 $('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importFile').addEventListener('change',()=>{const f=$('importFile').files?.[0];$('importStatus').textContent=f?'Selected: '+f.name+' ('+Math.ceil(f.size/1024)+' KB)':'Choose a JSON backup file, then tap Restore selected backup.'});$('restoreSelected').onclick=()=>{const f=$('importFile').files?.[0];if(!f){alert('No file is selected. Choose a JSON backup file first.');return}importJSON(f)};
