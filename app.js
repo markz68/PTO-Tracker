@@ -81,7 +81,7 @@ function refreshHolidayUI(){
 }
 function renderHolidayUI(){
  const year=Number($('holidayYear').value);
- $('holidayList').innerHTML=holidayDraft.map((h,i)=>'<div class="holidayLine"><label><input type="checkbox" data-holiday-index="'+i+'" '+(h.enabled?'checked':'')+'> '+esc(h.name)+'</label><span>'+esc(holidayDate(year,h.rule))+'</span><button type="button" class="secondary" data-holiday-delete="'+i+'">Remove</button></div>').join('');
+ $('holidayList').innerHTML=holidayDraft.map((h,i)=>'<div class="holidayLine"><label><input type="checkbox" data-holiday-index="'+i+'" '+(h.enabled?'checked':'')+'> '+esc(h.name)+'</label><span class="holidayDay '+([0,6].includes(dateObj(holidayDate(year,h.rule)).getUTCDay())?'weekend':'')+'">'+esc(holidayDate(year,h.rule))+' · '+esc(new Intl.DateTimeFormat('en-US',{weekday:'long',timeZone:'UTC'}).format(dateObj(holidayDate(year,h.rule))))+'</span><button type="button" class="secondary" data-holiday-delete="'+i+'">Remove</button></div>').join('');
  $('holidayInfo').textContent=holidayDraft.filter(h=>h.enabled).length+' holidays selected. Save this template before generating.';
 }
 $('holidayYear').value=String(new Date().getFullYear()+1);
