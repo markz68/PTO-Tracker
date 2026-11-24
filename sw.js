@@ -1,1 +1,35 @@
-const CACHE='pto-tracker-v1.3.4';const FILES=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x.startsWith('pto-tracker-')&&x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim()});self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('./index.html'))))});
+const CACHE = 'pto-tracker-v1.3.5';
+const FILES = [
+  './', './index.html', './styles.css?v=1.3.5', './app.js?v=1.3.5',
+  './theme.js?v=1.3.5', './manifest.webmanifest', './icon.svg',
+  './about.html', './privacy.html', './terms.html',
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith('pto-tracker-') && key !== CACHE).map(key => caches.delete(key))
+  )).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const response = await fetch(request);
+      if (response.ok) await cache.put(request, response.clone());
+      return response;
+    } catch (error) {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      if (request.mode === 'navigate') {
+        const app = await cache.match('./index.html');
+        if (app) return app;
+      }
+      throw error;
+    }
+  })());
+});

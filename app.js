@@ -31,7 +31,69 @@ function download(name,body,type){const url=URL.createObjectURL(new Blob([body],
 function exportJSON(){download('pto-tracker-backup-'+today()+'.json',JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data},null,2),'application/json')}
 function csv(s){let t=String(s??'');if(/^\s*[=+@-]/.test(t))t="'"+t;return '"'+t.replaceAll('"','""')+'"'}
 function exportCSV(){const rows=[['Start','End','Title','Category','Status','Hours per weekday','Weekdays','PTO hours','Company holiday','Excluded dates','Notes'],...data.entries.map(e=>[e.start,e.end,e.title,e.category,e.status,e.hours,weekdays(e.start,e.end,e.exclude||[]),used(e),e.company||'',(e.exclude||[]).join('; '),e.notes||''])];download('pto-tracker-'+today()+'.csv',rows.map(r=>r.map(csv).join(',')).join('\r\n'),'text/csv;charset=utf-8')}
-function importJSON(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const obj=JSON.parse(reader.result),v=obj.data||obj;if(!valid(v)||v.entries.some(e=>!e.id||!e.title||!e.start||!e.end)||v.balances.some(b=>!b.date||!decimal(String(b.hours))))throw Error('Invalid PTO Tracker backup');if(!confirm('Replace local data with '+v.entries.length+' entries and '+v.balances.length+' balance updates? Export your current data first if needed.'))return;data=v;if(save()){hide('settingsDialog');tab='upcoming';render();toast('Backup restored')}}catch(e){alert('Restore failed: '+e.message)}finally{$('importFile').value='';$('importStatus').textContent='Choose a backup file to restore another backup.'}};reader.onerror=()=>alert('Could not read file');reader.readAsText(file)}
+function validBackupDate(value){
+ return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(dateObj(value).getTime());
+}
+function validBackupTemplates(templates){
+ if(templates===undefined)return true;
+ return templates&&typeof templates==='object'&&!Array.isArray(templates)&&
+   Object.entries(templates).every(([year,holidays])=>/^20\d{2}$/.test(year)&&Array.isArray(holidays)&&
+     holidays.every(holiday=>typeof holiday?.name==='string'&&typeof holiday.rule==='string'&&
+       validBackupDate(holidayDate(Number(year),holiday.rule))));
+}
+function backupData(obj){
+ const value=obj?.data||obj;
+ if((obj?.app&&obj.app!=='PTO Tracker')||!valid(value)||
+    value.entries.some(entry=>!entry?.id||!entry.title||!validBackupDate(entry.start)||!validBackupDate(entry.end))||
+    value.balances.some(balance=>!validBackupDate(balance?.date)||!decimal(String(balance.hours)))||!validBackupTemplates(value.holidayTemplates)){
+   throw Error('Invalid PTO Tracker backup');
+ }
+ return value;
+}
+function describeBackup(value){
+ const count=(n,label)=>n+' '+label+(n===1?'':'s');
+ return value.entries.length+' PTO '+(value.entries.length===1?'entry':'entries')+', '+
+   count(value.balances.length,'balance update')+', '+
+   count(Object.keys(value.holidayTemplates||{}).length,'holiday template');
+}
+function confirmBackup(title,detail,action){
+ const dialog=$('backupConfirm');
+ if(dialog.open)return Promise.resolve(false);
+ $('backupConfirmTitle').textContent=title;
+ $('backupConfirmDetail').textContent=detail;
+ $('backupConfirmAction').textContent=action;
+ dialog.returnValue='cancel';
+ return new Promise(resolve=>{
+   dialog.addEventListener('close',()=>resolve(dialog.returnValue==='confirm'),{once:true});
+   dialog.showModal();
+ });
+}
+function restoreLocal(value){
+ const previous=data;
+ data=value;
+ if(!save()){data=previous;throw Error('Could not save restored data')}
+ render();
+ refreshHolidayUI();
+}
+async function importJSON(file){
+ if(!file||syncBusy)return;
+ const input=$('importFile'),status=$('importStatus');
+ syncBusy=true;
+ driveButtons(Boolean(driveToken));
+ try{
+   const before=snapshot(data),stored=localStorage.getItem(KEY);
+   const value=backupData(JSON.parse(await file.text()));
+   const accepted=await confirmBackup('Restore from Backup File?',
+     'Replace '+describeBackup(data)+' on this device with '+describeBackup(value)+' from '+file.name+'?',
+     'Restore Backup');
+   if(!accepted){status.textContent='Restore canceled.';return}
+   if(before!==snapshot(data)||stored!==localStorage.getItem(KEY))throw Error('Local data changed. Try again.');
+   tab='upcoming';
+   restoreLocal(value);
+   status.textContent='Backup restored. This device now has '+describeBackup(value)+'.';
+ }catch(error){status.textContent='Restore failed: '+error.message}
+ finally{input.value='';finishDriveOperation()}
+}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>hide(b.dataset.close));
 $('settings').onclick=()=>{openSettingsSection('home');show('settingsDialog')};
@@ -44,16 +106,16 @@ $('start').addEventListener('change',()=>{if(!$('entryId').value){$('end').value
 $('entries').onclick=event=>{const b=event.target.closest('[data-edit]');if(b)edit(b.dataset.edit)};
 $('entries').addEventListener('change',event=>{const select=event.target.closest('[data-status-id]');if(!select)return;const entry=data.entries.find(e=>e.id===select.dataset.statusId);if(!entry)return;const previous=entry.status,next=select.value;if(previous===next||(previous==='recognized'&&next==='planned'))return;if(!['recognized','planned','requested','approved','taken','denied','cancelled','worked'].includes(next)){select.value=previous;return}entry.status=next;if(save()){render();toast('Status updated to '+select.selectedOptions[0].textContent)}else{entry.status=previous;select.value=previous}});
 $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.entries.filter(e=>e.id!==$('entryId').value);if(save()){hide('entryDialog');render();toast('Entry deleted')}}};
-$('exportJSON').onclick=exportJSON;$('exportCSV').onclick=exportCSV;$('importFile').addEventListener('change',()=>{const f=$('importFile').files?.[0];$('importStatus').textContent=f?'Selected: '+f.name+' ('+Math.ceil(f.size/1024)+' KB)':'Choose a JSON backup file, then tap Restore selected backup.'});$('restoreSelected').onclick=()=>{const f=$('importFile').files?.[0];if(!f){alert('No file is selected. Choose a JSON backup file first.');return}importJSON(f)};
+$('exportJSON').onclick=exportJSON;
+$('exportCSV').onclick=exportCSV;
+$('importFile').addEventListener('change',event=>importJSON(event.target.files?.[0]));
 
-
-
-const settingsSections=['drive','holidays','backup','about'];
+const settingsSections=['holidays','backup','about'];
 function openSettingsSection(section){
  const home=section==='home';
  $('settingsHome').hidden=!home;
  $('settingsBack').hidden=home;
- $('settingsHeading').textContent=home?'Settings':({drive:'Google Drive Sync',holidays:'Annual Holidays',backup:'Backup & Export',about:'About'})[section];
+ $('settingsHeading').textContent=home?'Settings':({holidays:'Annual Holidays',backup:'Backup & Restore',about:'About'})[section];
  for(const name of settingsSections)$('settingsSection-'+name).hidden=home||name!==section;
  $('settingsDialog').scrollTop=0;
 }
@@ -147,7 +209,27 @@ const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
 const DRIVE_NAME='pto-tracker-backup.json';
 let driveToken='',driveTokenClient=null;
 function driveStatus(message){$('driveStatus').textContent=message}
-function driveButtons(connected){$('driveUpload').disabled=!connected;$('driveDownload').disabled=!connected;$('driveDisconnect').disabled=!connected;$('driveConnect').textContent=connected?'Reconnect Google Drive':'Connect Google Drive'}
+const LAST_DRIVE_SYNC='pto-tracker-last-drive-sync';
+function driveButtons(connected){
+ $('driveConnect').hidden=connected;
+ $('driveActions').hidden=!connected;
+ for(const control of ['syncNow','driveUpload','driveDownload','driveDisconnect']){
+   $(control).disabled=!connected||syncBusy;
+ }
+ $('importFile').disabled=syncBusy;
+ const last=localStorage.getItem(LAST_DRIVE_SYNC);
+ $('lastDriveSync').hidden=!connected||!last;
+ $('lastDriveSync').textContent=last?'Last successful sync or backup/restore: '+new Date(last).toLocaleString():'';
+}
+function recordDriveSuccess(value){
+ localStorage.setItem(SYNC_BASE,JSON.stringify(value));
+ try{localStorage.setItem(LAST_DRIVE_SYNC,new Date().toISOString())}catch{}
+}
+function finishDriveOperation(){
+ syncBusy=false;
+ driveButtons(Boolean(driveToken));
+ if(syncQueued){syncQueued=false;scheduleSync()}
+}
 function driveConnect(){
   if(!window.google?.accounts?.oauth2){driveStatus('Google sign-in is not loaded. Check your connection and try again.');return}
   if(!driveTokenClient)driveTokenClient=google.accounts.oauth2.initTokenClient({client_id:DRIVE_CLIENT_ID,scope:DRIVE_SCOPE,callback:response=>{
@@ -169,33 +251,70 @@ async function driveFile(){
   const list=await (await driveRequest(url)).json();
   return (list.files||[]).sort((a,b)=>b.modifiedTime.localeCompare(a.modifiedTime))[0]||null;
 }
+async function readDriveBackup(file){
+ const url='https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media';
+ return backupData(await (await driveRequest(url)).json());
+}
+function hasRecords(value){
+ return Boolean(value.entries.length||value.balances.length||Object.keys(value.holidayTemplates||{}).length);
+}
+async function checkBackupCopies(file,remote,localSnapshot,stored){
+ const latest=await driveFile();
+ if(latest?.id!==file?.id||latest?.modifiedTime!==file?.modifiedTime||
+    (latest&&snapshot(await readDriveBackup(latest))!==snapshot(remote))){
+   throw Error('Google Drive backup changed. Try again.');
+ }
+ if(localSnapshot!==snapshot(data)||stored!==localStorage.getItem(KEY)){
+   throw Error('Local data changed. Try again.');
+ }
+}
 async function driveBackup(){
-  try{
-    driveStatus('Checking Google Drive backup…');
-    const existing=await driveFile();
-    if(existing&&!confirm('Replace the existing Google Drive backup (last updated '+new Date(existing.modifiedTime).toLocaleString()+') with the records on THIS device? If this device is out of date, cancel and restore from Drive first.')){driveStatus('Backup cancelled');return}
-    if(!existing&&!confirm('Create a private Google Drive backup of the PTO data on this device?')){driveStatus('Backup cancelled');return}
-    const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
-    const meta=existing?{name:DRIVE_NAME}:{name:DRIVE_NAME,parents:['appDataFolder']};
-    const boundary='pto_tracker_boundary_'+Date.now();
-    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+payload+'\r\n--'+boundary+'--';
-    const url=existing?'https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(existing.id)+'?uploadType=multipart':'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-    await driveRequest(url,{method:existing?'PATCH':'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
-    localStorage.setItem(SYNC_BASE,JSON.stringify(data));driveStatus('Backup saved to Google Drive at '+new Date().toLocaleString());syncIndicator('Backed up');
-  }catch(e){driveStatus('Backup failed: '+e.message)}
+ if(syncBusy||!driveToken)return;
+ syncBusy=true;
+ driveButtons(true);
+ try{
+   driveStatus('Checking Google Drive backup…');
+   const local=structuredClone(data),before=snapshot(local),stored=localStorage.getItem(KEY);
+   const file=await driveFile(),remote=file?await readDriveBackup(file):null;
+   if(remote&&hasRecords(remote)&&!hasRecords(local)){
+     driveStatus('This device is empty. Choose Restore from Google Drive to retrieve your records.');return;
+   }
+   const detail=remote?'Replace '+describeBackup(remote)+' in Google Drive with '+describeBackup(local)+' from this device?':
+     'Save '+describeBackup(local)+' from this device to Google Drive?';
+   if(!await confirmBackup('Back Up to Google Drive?',detail,'Back Up to Google Drive')){
+     driveStatus('Backup canceled.');return;
+   }
+   await checkBackupCopies(file,remote,before,stored);
+   await uploadSync(file,local);
+   const uploaded=await driveFile();
+   if(!uploaded||snapshot(await readDriveBackup(uploaded))!==before)throw Error('Could not verify the Google Drive backup.');
+   recordDriveSuccess(local);
+   syncIndicator('Backed up');
+   driveStatus('Google Drive backup verified. '+describeBackup(local)+'.');
+ }catch(error){driveStatus('Backup failed: '+error.message)}
+ finally{finishDriveOperation()}
 }
 async function driveRestore(){
-  try{
-    driveStatus('Looking for Google Drive backup…');
-    const f=await driveFile();if(!f){driveStatus('No PTO Tracker backup found in Google Drive');return}
-    const obj=await (await driveRequest('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(f.id)+'?alt=media')).json();
-    const v=obj.data||obj;
-    if(!valid(v)||v.entries.some(e=>!e.id||!e.title||!e.start||!e.end)||v.balances.some(b=>!b.date||!decimal(String(b.hours))))throw Error('Invalid backup format');
-    if(!confirm('Replace ALL PTO data on THIS device with Google Drive backup from '+new Date(f.modifiedTime).toLocaleString()+'? Drive contains '+v.entries.length+' entries and '+v.balances.length+' balances. Download a JSON backup first if you need to preserve local changes.')){driveStatus('Restore cancelled');return}
-    const old=data;data=v;
-    if(!save()){data=old;throw Error('Could not save restored data')}
-    localStorage.setItem(SYNC_BASE,JSON.stringify(v));render();if(typeof refreshHolidayUI==='function')refreshHolidayUI();driveStatus('Restored '+v.entries.length+' PTO entries from Google Drive');syncIndicator('Synced');toast('Google Drive backup restored');
-  }catch(e){driveStatus('Restore failed: '+e.message)}
+ if(syncBusy||!driveToken)return;
+ syncBusy=true;
+ driveButtons(true);
+ try{
+   driveStatus('Looking for Google Drive backup…');
+   const before=snapshot(data),stored=localStorage.getItem(KEY);
+   const file=await driveFile();
+   if(!file){driveStatus('No PTO Tracker backup found in Google Drive.');return}
+   const value=await readDriveBackup(file);
+   const detail='Replace '+describeBackup(data)+' on this device with '+describeBackup(value)+' from Google Drive?';
+   if(!await confirmBackup('Restore from Google Drive?',detail,'Restore from Google Drive')){
+     driveStatus('Restore canceled.');return;
+   }
+   await checkBackupCopies(file,value,before,stored);
+   restoreLocal(value);
+   recordDriveSuccess(value);
+   syncIndicator('Synced');
+   driveStatus('Restore complete. This device now has '+describeBackup(value)+'.');
+ }catch(error){driveStatus('Restore failed: '+error.message)}
+ finally{finishDriveOperation()}
 }
 
 const SYNC_BASE='pto-tracker-sync-base-v1';
@@ -203,8 +322,8 @@ let syncBusy=false,syncQueued=false,syncTimer=null;
 const snapshot=x=>JSON.stringify({...{version:1,entries:x.entries,balances:x.balances},...(x.holidayTemplates&&Object.keys(x.holidayTemplates).length?{holidayTemplates:x.holidayTemplates}:{})});
 function syncIndicator(s){$('syncIndicator').textContent=s;if(driveToken&&$('driveStatus'))$('driveStatus').textContent=s}
 function scheduleSync(){if(!driveToken)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(),1200)}
-async function uploadSync(existing){
-  const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data});
+async function uploadSync(existing,value){
+  const payload=JSON.stringify({app:'PTO Tracker',exportedAt:new Date().toISOString(),data:value});
   const meta=existing?{name:DRIVE_NAME}:{name:DRIVE_NAME,parents:['appDataFolder']};
   const boundary='pto_sync_'+Date.now();
   const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+payload+'\r\n--'+boundary+'--';
@@ -213,30 +332,35 @@ async function uploadSync(existing){
 async function syncNow(){
   if(!driveToken||!navigator.onLine){syncIndicator(navigator.onLine?'Not connected':'Offline, changes kept locally');return}
   if(syncBusy){syncQueued=true;return}
-  syncBusy=true;syncIndicator('Syncing…');
+  syncBusy=true;driveButtons(true);syncIndicator('Syncing…');
   try{
+    const stored=localStorage.getItem(KEY);
     const file=await driveFile();
     let remote=null;
     if(file){
-      const obj=await (await driveRequest('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(file.id)+'?alt=media')).json();
-      remote=obj.data||obj;
-      if(!valid(remote))throw Error('Drive backup format is invalid');
+      remote=await readDriveBackup(file);
     }
+    if(stored!==localStorage.getItem(KEY))throw Error('Local data changed during sync. Try Sync Now.');
     const raw=localStorage.getItem(SYNC_BASE),base=raw?JSON.parse(raw):null;
     const localSnap=snapshot(data),remoteSnap=remote?snapshot(remote):null,baseSnap=base?snapshot(base):null;
     if(localSnap===remoteSnap){
-      localStorage.setItem(SYNC_BASE,JSON.stringify(data));
+      recordDriveSuccess(data);
       syncIndicator('Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+    }else if(remote&&hasRecords(remote)&&!hasRecords(data)){
+      syncIndicator('Restore available');
+      driveStatus('This device is empty. Choose Restore from Google Drive to retrieve your records.');
     }else if(baseSnap!==null&&localSnap===baseSnap&&remote){
-      data=remote;if(!save())throw Error('Local storage failed');
-      localStorage.setItem(SYNC_BASE,JSON.stringify(data));render();if(typeof refreshHolidayUI==='function')refreshHolidayUI();
+      restoreLocal(remote);
+      recordDriveSuccess(remote);
       syncIndicator('Synced from Drive '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
     }else if((baseSnap!==null&&remoteSnap===baseSnap)||(!remote&&!base)){
       // Re-read before writing; refuse a changed remote snapshot.
       const latestFile=await driveFile();
       if((latestFile?.modifiedTime||null)!==(file?.modifiedTime||null))throw Error('Drive changed during sync. Try Sync Now.');
-      await uploadSync(file);
-      localStorage.setItem(SYNC_BASE,JSON.stringify(data));
+      if(snapshot(data)!==localSnap||stored!==localStorage.getItem(KEY))throw Error('Local data changed during sync. Try Sync Now.');
+      const local=structuredClone(data);
+      await uploadSync(file,local);
+      recordDriveSuccess(local);
       syncIndicator('Synced to Drive '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
     }else if(!base&&remote){
       syncIndicator('Needs review: device and Drive differ');
@@ -246,7 +370,7 @@ async function syncNow(){
       driveStatus('Both this device and Google Drive changed. Automatic sync paused. Export JSON backups and reconcile before restoring or backing up.');
     }
   }catch(e){syncIndicator('Sync pending');driveStatus('Sync could not finish: '+e.message)}
-  finally{syncBusy=false;if(syncQueued){syncQueued=false;scheduleSync()}}
+  finally{finishDriveOperation()}
 }
 $('syncNow').onclick=syncNow;
 window.addEventListener('online',()=>scheduleSync());
