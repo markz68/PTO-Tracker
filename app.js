@@ -109,13 +109,20 @@ $('remove').onclick=()=>{if(confirm('Delete this entry?')){data.entries=data.ent
 $('exportJSON').onclick=exportJSON;
 $('exportCSV').onclick=exportCSV;
 $('importFile').addEventListener('change',event=>importJSON(event.target.files?.[0]));
+$('restoreFile').onclick=()=>$('importFile').click();
+$('openBackup').onclick=()=>show('backupDialog');
+$('backupClose').onclick=$('backupDone').onclick=()=>hide('backupDialog');
+$('backupDialog').addEventListener('click',event=>{
+ if(event.target===$('backupDialog'))hide('backupDialog');
+});
 
-const settingsSections=['holidays','backup','about'];
+
+const settingsSections=['holidays','about'];
 function openSettingsSection(section){
  const home=section==='home';
  $('settingsHome').hidden=!home;
  $('settingsBack').hidden=home;
- $('settingsHeading').textContent=home?'Settings':({holidays:'Annual Holidays',backup:'Backup & Restore',about:'About'})[section];
+ $('settingsHeading').textContent=home?'Settings':({holidays:'Annual Holidays',about:'About'})[section];
  for(const name of settingsSections)$('settingsSection-'+name).hidden=home||name!==section;
  $('settingsDialog').scrollTop=0;
 }
@@ -216,7 +223,7 @@ function driveButtons(connected){
  for(const control of ['syncNow','driveUpload','driveDownload','driveDisconnect']){
    $(control).disabled=!connected||syncBusy;
  }
- $('importFile').disabled=syncBusy;
+ $('importFile').disabled=$('restoreFile').disabled=syncBusy;
  const last=localStorage.getItem(LAST_DRIVE_SYNC);
  $('lastDriveSync').hidden=!connected||!last;
  $('lastDriveSync').textContent=last?'Last successful sync or backup/restore: '+new Date(last).toLocaleString():'';

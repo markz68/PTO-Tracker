@@ -4,7 +4,7 @@ PTO Tracker keeps a history of planned and past time off, annual holidays, and e
 
 **Live app** · https://markz68.github.io/PTO-Tracker/
 
-**Version** · v1.3.5
+**Version** · v1.3.6
 
 ## Features
 
@@ -28,12 +28,16 @@ Records and preferences are stored in this browser. New installations start empt
 
 Open **Settings → Backup & Restore**.
 
-- **Export Backup File** saves entries, balances, and holiday templates in `pto-tracker-backup-YYYY-MM-DD.json`. Choose a file under **Restore from Backup File**, then review and confirm the replacement. Existing JSON backups still work under their original filenames.
+- **Export Backup File** saves entries, balances, and holiday templates in `pto-tracker-backup-YYYY-MM-DD.json`. Select **Restore from Backup File** to choose a JSON file, then review and confirm the replacement. Existing JSON backups still work under their original filenames.
 - **Export CSV** saves time-off entries for Excel or other spreadsheet apps. Use JSON for a full, restorable backup.
 - **Google Drive** is optional and uses the app’s private Drive folder. Automatic sync runs while connected. Use **Sync Now** to check immediately, **Back Up to Google Drive** to send the local copy, and **Restore from Google Drive** to retrieve it. The app pauses sync if both copies differ and the baseline cannot resolve which one changed. An empty device cannot overwrite nonempty Drive records.
 - Google authorization is session-based. Reconnect after a browser restart or Google session expiry.
 
 ## Release notes
+
+### v1.3.6
+
+- Matched the Infinity Bourbon Backup & Restore dialog layout and opened the JSON file picker from the Restore button.
 
 ### v1.3.5
 

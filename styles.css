@@ -22,10 +22,6 @@
 .themeOptions label{display:flex;align-items:center;gap:10px;min-height:40px;margin:0}
 .themeOptions input{width:auto;margin:0;accent-color:#087a6d}
 #theme-status:empty,#importStatus:empty,#driveActions[hidden]{display:none}
-.backupGroup{border-top:1px solid #e1e8ef;padding:8px 0 16px}
-#settingsDialog .backupGroup h3{margin:10px 0}
-.nativePicker{margin:0}
-.nativePicker input{font-weight:400}
 .aboutLinks{display:flex;gap:12px 20px;flex-wrap:wrap;margin:16px 0}
 .aboutLinks a,.infoPage a{color:#006f63}
 .infoPage .card{padding:22px}
@@ -57,3 +53,42 @@ button:disabled{opacity:.45;cursor:not-allowed}
 [data-theme="dark"] select.quickStatus.approved,[data-theme="dark"] select.quickStatus.taken{background:#17463b;color:#a5ead3}
 [data-theme="dark"] select.quickStatus.requested{background:#55431e;color:#ffe09a}
 [data-theme="dark"] select.quickStatus.cancelled,[data-theme="dark"] select.quickStatus.denied{background:#542e3a;color:#ffc2c9}
+
+/* Match the Infinity Bourbon Backup & Restore layout using PTO Tracker colors. */
+#backupDialog{
+ width:min(94vw,520px);
+ max-height:min(88dvh,760px);
+ padding:0;
+ border:1px solid #d4e0e8;
+ border-radius:19px;
+ overflow:hidden;
+}
+.backupContent{padding:24px;max-height:min(88dvh,758px);overflow-y:auto}
+.backupHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.backupHeader h2{font:500 25px Georgia,serif;color:#23475b;margin:3px 0 12px}
+#backupClose{
+ width:40px;height:40px;flex-shrink:0;
+ border:1px solid #cbd8e1;border-radius:12px;
+ background:#f5f8fa;color:#23475b;font-size:25px;line-height:1;
+}
+#backupClose:focus-visible{outline:2px solid #087a6d;outline-offset:2px}
+#backupDialog .backupGroup{padding:16px 0;border-top:1px solid #e1e8ef}
+#backupDialog h3{font-size:14px;color:#23475b;margin:0 0 12px}
+#backupDialog .stack{gap:9px}
+#backupDialog .stack button{width:100%;padding:12px 14px;font-size:13px;font-weight:700;border-radius:12px}
+#backupDialog p{margin:0 0 12px}
+#backupDialog .backupHint{font-size:11px;color:#617584;line-height:1.5}
+#backupDialog #importStatus,#backupDialog #lastDriveSync{margin:8px 0 0;font-size:12px;overflow-wrap:anywhere}
+#backupDialog #lastDriveSync:not([hidden]){margin-bottom:12px}
+#importFile[hidden]{display:none}
+.backupFooter{position:sticky;bottom:-24px;background:#fff;text-align:center;margin:18px 0 0;padding:10px 0}
+.backupFooter button{font-weight:700;border-radius:12px}
+@media(max-width:420px){
+ .backupContent{padding:20px}
+ .backupFooter{bottom:-20px}
+}
+[data-theme="dark"] #backupDialog,[data-theme="dark"] #backupDialog .backupGroup{border-color:#526a7c}
+[data-theme="dark"] .backupHeader h2,[data-theme="dark"] #backupDialog h3{color:#a2ebdc}
+[data-theme="dark"] #backupClose{background:#233a4b;color:#e6eef4;border-color:#526a7c}
+[data-theme="dark"] #backupDialog .backupHint{color:#afc5d4}
+[data-theme="dark"] .backupFooter{background:#192b39}

@@ -1,7 +1,7 @@
-const CACHE = 'pto-tracker-v1.3.5';
+const CACHE = 'pto-tracker-v1.3.6';
 const FILES = [
-  './', './index.html', './styles.css?v=1.3.5', './app.js?v=1.3.5',
-  './theme.js?v=1.3.5', './manifest.webmanifest', './icon.svg',
+  './', './index.html', './styles.css?v=1.3.6', './app.js?v=1.3.6',
+  './theme.js?v=1.3.6', './manifest.webmanifest', './icon.svg',
   './about.html', './privacy.html', './terms.html',
 ];
 
